@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import json
 import os
 import re
@@ -6,109 +5,176 @@ import time
 import requests
 import subprocess
 
-def yaz(metin):
-    print(metin)
-
-def get_live_video_id(channel):
-    handle = channel.get("handle", "")
-    channel_id = channel.get("channel_id", "")
+def get_live(channel):
+    h = channel.get("handle", "")
+    cid = channel.get("channel_id", "")
     urls = []
-    if handle:
-        urls.append("https://www.youtube.com/" + handle + "/live")
-    if channel_id:
-        urls.append("https://www.youtube.com/channel/" + channel_id + "/live")
+    if h:
+        u = "https://www.youtube.com/"
+        u = u + h
+        u = u + "/live"
+        urls.append(u)
+    if cid:
+        u = "https://www.youtube.com/"
+        u = u + "channel/"
+        u = u + cid
+        u = u + "/live"
+        urls.append(u)
     for url in urls:
         try:
-            r = subprocess.run(['yt-dlp', '--get-id', '--no-warnings', url], capture_output=True, text=True, timeout=30)
-            vid = r.stdout.strip().split('\n')[0] if r.stdout.strip() else ""
-            if len(vid) == 11:
-                return vid
+            r = subprocess.run(
+                ['yt-dlp', '--get-id', url],
+                capture_output=True,
+                text=True,
+                timeout=30)
+            v = r.stdout.strip()
+            v = v.split('\n')[0]
+            if len(v) == 11:
+                return v
         except Exception:
             continue
     return None
 
-def get_latest_video_id(channel):
-    channel_id = channel.get("channel_id", "")
-    if not channel_id:
+def get_latest(channel):
+    cid = channel.get("channel_id", "")
+    if not cid:
         return None
     try:
-        url = "https://www.youtube.com/feeds/videos.xml?channel_id=" + channel_id
-        r = requests.get(url, timeout=15)
-        m = re.findall(r"<yt:videoId>([A-Za-z0-9_-]{11})</yt:videoId>", r.text)
+        u = "https://www.youtube.com/"
+        u = u + "feeds/videos.xml"
+        u = u + "?channel_id="
+        u = u + cid
+        r = requests.get(u, timeout=15)
+        p = r"<yt:videoId>"
+        p = p + r"([A-Za-z0-9_-]{11})"
+        p = p + r"</yt:videoId>"
+        m = re.findall(p, r.text)
         if m:
             return m[0]
     except Exception:
         pass
     return None
 
-def get_m3u_from_video(video_id):
-    video_url = "https://www.youtube.com/watch?v=" + video_id
-    cmd = ['yt-dlp', '-g', '-f', 'best[height<=720][ext=mp4]/best[height<=720]/best', '--no-warnings', '--extractor-args', 'youtube:player_client=android,web', video_url]
+def get_m3u(vid):
+    vu = "https://www.youtube.com/"
+    vu = vu + "watch?v="
+    vu = vu + vid
+    cmd = []
+    cmd.append('yt-dlp')
+    cmd.append('-g')
+    cmd.append('-f')
+    cmd.append('best[height<=720]')
+    cmd.append('--no-warnings')
+    cmd.append(vu)
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        if result.returncode == 0 and result.stdout.strip().startswith("http"):
-            return result.stdout.strip().split('\n')[0]
+        r = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=30)
+        s = r.stdout.strip()
+        if s.startswith("http"):
+            return s.split('\n')[0]
     except Exception as e:
         print(e)
     return None
 
-def safe_filename(name):
-    name = name.lower()
-    name = re.sub(r'[^a-z0-9]', '_', name)
-    return re.sub(r'_+', '_', name).strip('_')
+def safe(name):
+    n = name.lower()
+    n = re.sub(r'[^a-z0-9]', '_', n)
+    n = re.sub(r'_+', '_', n)
+    return n.strip('_')
 
 def main():
-    print("Sultanlar Ligi Basliyor")
+    print("Basliyor")
     try:
-        with open('channels.json', 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        f = open('channels.json')
+        data = json.load(f)
+        f.close()
     except Exception:
-        print("channels.json bulunamadi!")
+        print("channels.json yok!")
         return
-    channels = [c for c in data['channels'] if c.get('enabled', True)]
+    chans = data['channels']
+    chans = [c for c in chans]
+    chans = [c for c in chans if c.get('enabled')]
     os.makedirs('m3u_files', exist_ok=True)
     results = []
-    for ch in channels:
+    for ch in chans:
         name = ch['name']
         print(name)
-        video_id = get_live_video_id(ch)
-        is_live = True
-        if not video_id:
-            print("Canli YOK, eski video deneniyor...")
-            video_id = get_latest_video_id(ch)
-            is_live = False
-            if not video_id:
-                print("Eski video da bulunamadi")
-                results.append({'name': name, 'status': 'failed'})
+        vid = get_live(ch)
+        live = True
+        if not vid:
+            print("Canli YOK")
+            vid = get_latest(ch)
+            live = False
+            if not vid:
+                print("Eski de YOK")
+                d = {}
+                d['name'] = name
+                d['status'] = 'failed'
+                results.append(d)
                 continue
-        if is_live:
-            print("Canli bulundu: " + video_id)
+        if live:
+            print("Canli bulundu")
+            print(vid)
         else:
-            print("Eski video bulundu: " + video_id)
-        m3u_url = get_m3u_from_video(video_id)
-        if m3u_url:
-            if is_live:
-                etiket = "CANLI"
+            print("Eski bulundu")
+            print(vid)
+        url = get_m3u(vid)
+        if url:
+            if live:
+                et = "CANLI"
             else:
-                etiket = "TEKRAR"
-            content = []
-            content.append('#EXTM3U')
-            content.append('#EXTINF:-1,' + etiket + ' ' + name)
-            content.append(m3u_url)
-            filename = "m3u_files/" + safe_filename(name) + ".m3u"
-            with open(filename, 'w', encoding='utf-8') as f:
-                f.write('\n'.join(content))
-            print("M3U olustu: " + filename)
-            results.append({'name': name, 'status': 'success', 'm3u_url': m3u_url, 'is_live': is_live})
+                et = "TEKRAR"
+            c = []
+            c.append('#EXTM3U')
+            s = "#EXTINF:-1,"
+            s = s + et
+            s = s + " "
+            s = s + name
+            c.append(s)
+            c.append(url)
+            fn = "m3u_files/"
+            fn = fn + safe(name)
+            fn = fn + ".m3u"
+            f = open(fn, 'w')
+            f.write('\n'.join(c))
+            f.close()
+            print("Oldu")
+            print(fn)
+            d = {}
+            d['name'] = name
+            d['status'] = 'success'
+            d['m3u_url'] = url
+            d['is_live'] = live
+            results.append(d)
         else:
-            print("m3u alinamadi")
-            results.append({'name': name, 'status': 'failed'})
+            print("m3u YOK")
+            d = {}
+            d['name'] = name
+            d['status'] = 'failed'
+            results.append(d)
         time.sleep(2)
-    content = ['#EXTM3U', '#PLAYLIST:Sultanlar Ligi YouTube']
+    c = []
+    c.append('#EXTM3U')
+    c.append('#PLAYLIST:Sultanlar')
     for r in results:
         if r['status'] == 'success':
             if r.get('is_live'):
-                etiket = "CANLI"
+                et = "CANLI"
             else:
-                etiket = "TEKRAR"
-            content.append("#EXTINF:-1," + etiket
+                et = "TEKRAR"
+            s = "#EXTINF:-1,"
+            s = s + et
+            s = s + " "
+            s = s + r['name']
+            c.append(s)
+            c.append(r['m3u_url'])
+    f = open('m3u_files/all_channels.m3u', 'w')
+    f.write('\n'.join(c))
+    f.close()
+    print("Bitti")
+
+if __name__ == "__main__":
+    main()
