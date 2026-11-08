@@ -1,5 +1,4 @@
 # Yazar: Ahmet Dogan
-# Proje: Sultanlar M3U - YouTube canli / tekrar link uretici
 import json
 import os
 import re
@@ -7,23 +6,47 @@ import time
 import requests
 import subprocess
 
-def base_args():
-    args = []
-    args.append('--no-warnings')
-    args.append('--no-playlist')
-    args.append('--extractor-args')
-    ea = 'youtube:player_client=android,ios,tv_embedded'
-    ea = ea + ';player_skip=webpage,configs'
-    po = os.environ.get('YT_PO_TOKEN', '')
-    po = po.strip()
-    vi = os.environ.get('YT_VISITOR_DATA', '')
-    vi = vi.strip()
-    if po:
-        ea = ea + ';po_token=' + po
-    if vi:
-        ea = ea + ';visitor_data=' + vi
-    args.append(ea)
-    return args
+def write_cookies():
+    # GitHub Secrets: YT_COOKIES icine cookies.txt icerigini koyarsan kullanilir
+    c = os.environ.get('YT_COOKIES', '').strip()
+    if not c:
+        return None
+    try:
+        # Secrets'e base64 veya duz yazi olarak koyabilirsin
+        # base64 ise decode et, degilse oldugu gibi yaz
+        import base64
+        try:
+            dec = base64.b64decode(c).decode('utf-8', errors='ignore')
+            if 'Netscape' in dec or 'youtube' in dec.lower():
+                c = dec
+        except Exception:
+            pass
+        with open('cookies.txt', 'w', encoding='utf-8') as f:
+            f.write(c)
+        return 'cookies.txt'
+    except Exception as e:
+        print("Cookie yazma hatasi:", e)
+        return None
+
+def build_base_cmd(extra_clients=None):
+    cmd = ['yt-dlp', '--no-warnings', '--no-playlist']
+    # cookies varsa ekle - bu bot kontrolunu en guclu asan yontem
+    cf = write_cookies()
+    if cf:
+        cmd += ['--cookies', cf]
+    # impersonate varsa dene, yoksa sorun degil
+    cmd += ['--impersonate', 'chrome']
+    po_token = os.environ.get('YT_PO_TOKEN', '').strip()
+    visitor = os.environ.get('YT_VISITOR_DATA', '').strip()
+    clients = extra_clients if extra_clients else 'android,ios,tv_embedded'
+    args = 'youtube:player_client=' + clients
+    args += ';player_skip=webpage,configs'
+    if po_token:
+        args += ';po_token=' + po_token
+    if visitor:
+        args += ';visitor_data=' + visitor
+    cmd += ['--extractor-args', args]
+    return cmd
 
 def get_live(channel):
     h = channel.get("handle", "")
@@ -42,18 +65,10 @@ def get_live(channel):
         urls.append(u)
     for url in urls:
         try:
-            cmd = []
-            cmd.append('yt-dlp')
-            cmd = cmd + base_args()
-            cmd.append('--get-id')
-            cmd.append(url)
-            r = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=40)
+            cmd = build_base_cmd() + ['--get-id', url]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
             v = r.stdout.strip()
-            v = v.split('\n')[0]
+            v = v.split('\n')[0] if v else ""
             if len(v) == 11:
                 return v
             print("Live Hata:")
@@ -63,50 +78,58 @@ def get_live(channel):
     return None
 
 def get_latest(channel):
+    # 1. Once channel_id ile RSS dene (en hizli)
     cid = channel.get("channel_id", "")
-    if not cid:
-        return None
-    try:
-        u = "https://www.youtube.com/"
-        u = u + "feeds/videos.xml"
-        u = u + "?channel_id="
-        u = u + cid
-        r = requests.get(u, timeout=15)
-        p = r"<yt:videoId>"
-        p = p + r"([A-Za-z0-9_-]{11})"
-        p = p + r"</yt:videoId>"
-        m = re.findall(p, r.text)
-        if m:
-            return m[0]
-    except Exception:
-        pass
+    if cid:
+        try:
+            u = "https://www.youtube.com/"
+            u = u + "feeds/videos.xml"
+            u = u + "?channel_id="
+            u = u + cid
+            r = requests.get(u, timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
+            p = r"<yt:videoId>"
+            p = p + r"([A-Za-z0-9_-]{11})"
+            p = p + r"</yt:videoId>"
+            m = re.findall(p, r.text)
+            if m:
+                return m[0]
+        except Exception:
+            pass
+    # 2. channel_id yoksa / bos ise handle ile yt-dlp'den son videoyu al (TRT icin bu lazim)
+    h = channel.get("handle", "")
+    if h:
+        try:
+            url = "https://www.youtube.com/" + h + "/videos"
+            cmd = build_base_cmd() + ['--flat-playlist', '--playlist-end', '1', '--get-id', url]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
+            v = r.stdout.strip()
+            v = v.split('\n')[0] if v else ""
+            if len(v) == 11:
+                return v
+            print("Latest handle hatasi:", r.stderr[:300])
+        except Exception as e:
+            print(e)
     return None
 
 def get_m3u(vid):
     vu = "https://www.youtube.com/"
     vu = vu + "watch?v="
     vu = vu + vid
+    # 1. Tur: android/ios (canli icin)
+    # 2. Tur: web + android (eski video / bitmis canli icin, PO_TOKEN + cookies ile calisir)
     denemeler = []
-    denemeler.append('best[height<=720]/best')
-    denemeler.append('best')
-    denemeler.append('best[ext=mp4]/best')
-    for fmt in denemeler:
-        cmd = []
-        cmd.append('yt-dlp')
-        cmd = cmd + base_args()
-        cmd.append('-g')
-        cmd.append('-f')
-        cmd.append(fmt)
-        cmd.append(vu)
+    denemeler.append(('android,ios,tv_embedded', 'best[height<=720]/best'))
+    denemeler.append(('android,ios,tv_embedded', 'best'))
+    denemeler.append(('web,android', 'best[height<=720]/best'))
+    denemeler.append(('web,android', 'best'))
+    denemeler.append(('web,android', 'best[ext=mp4]/best'))
+    for clients, fmt in denemeler:
+        cmd = build_base_cmd(clients) + ['-g', '-f', fmt, vu]
         try:
-            r = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=40)
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=40)
             s = r.stdout.strip()
             print("Deneme:")
-            print(fmt)
+            print(clients + " | " + fmt)
             print("Sonuc:")
             print(s[:100])
             print("Hata:")
