@@ -174,6 +174,57 @@ def get_m3u(vid):
             print(e)
             continue
         time.sleep(1)
+    # Yedek yol: cookiesiz Invidious ile dene (yt-dlp bot yediyse)
+    print("Invidious yedegi deneniyor...")
+    inv = get_m3u_invidious(vid)
+    if inv:
+        return inv
+    return None
+
+def get_m3u_invidious(vid):
+    # YouTube videosunu Invidious API uzerinden alir, giris istemez
+    # Bir instance bozulursa digerini dener
+    instances = []
+    instances.append('https://inv.nadeko.net')
+    instances.append('https://invidious.0011.lt')
+    instances.append('https://inv.us.projectsegfau.lt')
+    instances.append('https://iv.datura.network')
+    for base in instances:
+        try:
+            u = base + '/api/v1/videos/' + vid
+            r = requests.get(u, timeout=20, headers={'User-Agent': 'Mozilla/5.0'})
+            if r.status_code != 200:
+                print("Invidious " + base + " kod:" + str(r.status_code))
+                continue
+            data = r.json()
+            # 1. HLS varsa en iyisi o
+            hls = data.get('hlsUrl', '')
+            if hls and hls.startswith('http'):
+                print("Invidious HLS bulundu: " + base)
+                return hls
+            # 2. Yoksa adaptiveFormats icinden mp4 sec
+            fmts = data.get('adaptiveFormats', [])
+            best = None
+            best_h = -1
+            for f in fmts:
+                if f.get('type', '').startswith('video/mp4'):
+                    h = f.get('height', 0) or 0
+                    if h <= 720 and h > best_h:
+                        best = f.get('url', '')
+                        best_h = h
+            if best:
+                print("Invidious MP4 bulundu: " + base)
+                return best
+            # 3. formatStreams
+            fmts2 = data.get('formatStreams', [])
+            for f in fmts2:
+                u2 = f.get('url', '')
+                if u2.startswith('http'):
+                    print("Invidious format bulundu: " + base)
+                    return u2
+        except Exception as e:
+            print("Invidious hata " + base + ": " + str(e)[:200])
+            continue
     return None
 
 def safe(name):
@@ -299,6 +350,14 @@ def main():
             s = s + r['name']
             c.append(s)
             c.append(r['m3u_url'])
+    f = open('m3u_files/all_channels.m3u', 'w')
+    f.write('\n'.join(c))
+    f.close()
+    print("Bitti")
+
+if __name__ == "__main__":
+    main()
+url'])
     f = open('m3u_files/all_channels.m3u', 'w')
     f.write('\n'.join(c))
     f.close()
