@@ -150,6 +150,17 @@ def safe(name):
 
 def main():
     print("Basliyor")
+    # TESHIS: Secrets geliyor mu?
+    ck = os.environ.get('YT_COOKIES', '').strip()
+    pt = os.environ.get('YT_PO_TOKEN', '').strip()
+    if ck:
+        print("COOKIE: VAR, uzunluk=" + str(len(ck)))
+    else:
+        print("COOKIE: YOK! Secrets'e YT_COOKIES eklenmemis veya workflow env'e eklenmemis")
+    if pt:
+        print("PO_TOKEN: VAR")
+    else:
+        print("PO_TOKEN: YOK")
     try:
         f = open('channels.json')
         data = json.load(f)
@@ -165,6 +176,26 @@ def main():
     for ch in chans:
         name = ch['name']
         print(name)
+        # TRT icin direkt TRT linki varsa YouTube botuna hic bulasma
+        direct = ch.get("direct_url", "")
+        if direct:
+            print("Direkt link kullaniliyor, YouTube atlaniyor")
+            print(direct)
+            c = []
+            c.append('#EXTM3U')
+            c.append("#EXTINF:-1,CANLI " + name)
+            c.append(direct)
+            fn = "m3u_files/" + safe(name) + ".m3u"
+            f = open(fn, 'w')
+            f.write('\n'.join(c))
+            f.close()
+            d = {}
+            d['name'] = name
+            d['status'] = 'success'
+            d['m3u_url'] = direct
+            d['is_live'] = True
+            results.append(d)
+            continue
         vid = get_live(ch)
         live = True
         if not vid:
