@@ -84,6 +84,8 @@ def get_m3u(vid):
             print(fmt)
             print("Sonuc:")
             print(s[:100])
+            print("Hata:")
+            print(r.stderr[:500])
             if s.startswith("http"):
                 return s.split('\n')[0]
         except Exception as e:
