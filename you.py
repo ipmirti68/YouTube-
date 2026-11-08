@@ -185,10 +185,10 @@ def get_m3u_invidious(vid):
     # YouTube videosunu Invidious API uzerinden alir, giris istemez
     # Bir instance bozulursa digerini dener
     instances = []
+    instances.append('https://invidious.private.coffee')
+    instances.append('https://invidious.drgns.space')
+    instances.append('https://invidious.privacyredirect.com')
     instances.append('https://inv.nadeko.net')
-    instances.append('https://invidious.0011.lt')
-    instances.append('https://inv.us.projectsegfau.lt')
-    instances.append('https://iv.datura.network')
     for base in instances:
         try:
             u = base + '/api/v1/videos/' + vid
@@ -225,6 +225,44 @@ def get_m3u_invidious(vid):
         except Exception as e:
             print("Invidious hata " + base + ": " + str(e)[:200])
             continue
+    # Invidious olmadiysa Piped dene
+    print("Piped yedegi deneniyor...")
+    return get_m3u_piped(vid)
+
+def get_m3u_piped(vid):
+    # Piped API: YouTube videosunu girissiz verir
+    apis = []
+    apis.append('https://pipedapi.kavin.rocks')
+    apis.append('https://pipedapi.adminforge.de')
+    apis.append('https://api.piped.privacy.com.de')
+    apis.append('https://pipedapi.leptons.xyz')
+    for base in apis:
+        try:
+            u = base + '/streams/' + vid
+            r = requests.get(u, timeout=20, headers={'User-Agent': 'Mozilla/5.0'})
+            if r.status_code != 200:
+                print("Piped " + base + " kod:" + str(r.status_code))
+                continue
+            data = r.json()
+            hls = data.get('hls', '')
+            if hls and hls.startswith('http'):
+                print("Piped HLS bulundu: " + base)
+                return hls
+            # videoStreams icinden mp4
+            for f in data.get('videoStreams', []):
+                u2 = f.get('url', '')
+                if u2.startswith('http') and 'mp4' in f.get('mimeType', ''):
+                    print("Piped MP4 bulundu: " + base)
+                    return u2
+            # audioStreams degil, adaptiveFormats benzeri
+            for f in data.get('adaptiveFormats', []):
+                u2 = f.get('url', '')
+                if u2.startswith('http') and 'video' in f.get('mimeType', ''):
+                    print("Piped adaptive bulundu: " + base)
+                    return u2
+        except Exception as e:
+            print("Piped hata " + base + ": " + str(e)[:200])
+            continue
     return None
 
 def safe(name):
@@ -235,7 +273,7 @@ def safe(name):
 
 def main():
     print("Basliyor")
-    print("SURUM: 24 - Invidious + Kuzeyboru filtreli")
+    print("SURUM: 25 - Piped + Invidious + Kuzeyboru")
     # TESHIS: Secrets geliyor mu?
     ck = os.environ.get('YT_COOKIES', '').strip()
     pt = os.environ.get('YT_PO_TOKEN', '').strip()
@@ -274,6 +312,99 @@ def main():
             fn = "m3u_files/" + safe(name) + ".m3u"
             f = open(fn, 'w')
             f.write('\n'.join(c))
+            f.close()
+            d = {}
+            d['name'] = name
+            d['status'] = 'success'
+            d['m3u_url'] = direct
+            d['is_live'] = True
+            results.append(d)
+            continue
+        vid = get_live(ch)
+        live = True
+        if not vid:
+            print("Canli YOK")
+            vid = get_latest(ch)
+            live = False
+            if not vid:
+                print("Eski de YOK")
+                d = {}
+                d['name'] = name
+                d['status'] = 'failed'
+                results.append(d)
+                continue
+        if live:
+            print("Canli bulundu")
+            print(vid)
+        else:
+            print("Eski bulundu")
+            print(vid)
+        # Eski macsa once Invidious dene (cookiesiz calisir), canliysa yt-dlp
+        if not live:
+            print("Eski mac, once Invidious deneniyor...")
+            url = get_m3u_invidious(vid)
+            if not url:
+                print("Invidious olmadi, yt-dlp deneniyor...")
+                url = get_m3u(vid, is_live=False)
+        else:
+            url = get_m3u(vid, is_live=True)
+        if url:
+            if live:
+                et = "CANLI"
+            else:
+                et = "TEKRAR"
+            c = []
+            c.append('#EXTM3U')
+            s = "#EXTINF:-1,"
+            s = s + et
+            s = s + " "
+            s = s + name
+            c.append(s)
+            c.append(url)
+            fn = "m3u_files/"
+            fn = fn + safe(name)
+            fn = fn + ".m3u"
+            f = open(fn, 'w')
+            f.write('\n'.join(c))
+            f.close()
+            print("Oldu")
+            print(fn)
+            d = {}
+            d['name'] = name
+            d['status'] = 'success'
+            d['m3u_url'] = url
+            d['is_live'] = live
+            results.append(d)
+        else:
+            print("m3u YOK")
+            d = {}
+            d['name'] = name
+            d['status'] = 'failed'
+            results.append(d)
+        time.sleep(2)
+    c = []
+    c.append('#EXTM3U')
+    c.append('#PLAYLIST:Sultanlar')
+    for r in results:
+        if r['status'] == 'success':
+            if r.get('is_live'):
+                et = "CANLI"
+            else:
+                et = "TEKRAR"
+            s = "#EXTINF:-1,"
+            s = s + et
+            s = s + " "
+            s = s + r['name']
+            c.append(s)
+            c.append(r['m3u_url'])
+    f = open('m3u_files/all_channels.m3u', 'w')
+    f.write('\n'.join(c))
+    f.close()
+    print("Bitti")
+
+if __name__ == "__main__":
+    main()
+       f.write('\n'.join(c))
             f.close()
             d = {}
             d['name'] = name
