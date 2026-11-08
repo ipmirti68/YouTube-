@@ -1,7 +1,24 @@
 {
   "channels": [
-    {"name": "TVF Voleybol TV", "handle": "@tvfvoleyboltv", "channel_id": "UCTgQ8Bfq3AUuo1vWULdvRKw", "enabled": true},
-    {"name": "【entity-TRT Spor¦canonical_name=TRT Spor】 Yildiz", "handle": "@trtsporyildiz", "channel_id": "", "enabled": true},
-    {"name": "【entity-TRT Spor¦canonical_name=TRT Spor】", "handle": "@trtspor", "channel_id": "", "enabled": true}
+    {
+      "name": "TVF Voleybol TV",
+      "handle": "@tvfvoleyboltv",
+      "channel_id": "UCTgQ8Bfq3AUuo1vWULdvRKw",
+      "enabled": true
+    },
+    {
+      "name": "TRT Spor Yildiz",
+      "handle": "@trtsporyildiz",
+      "channel_id": "",
+      "direct_url": "https://tv-trtspor2.medya.trt.com.tr/master.m3u8",
+      "enabled": true
+    },
+    {
+      "name": "TRT Spor",
+      "handle": "@trtspor",
+      "channel_id": "",
+      "direct_url": "https://tv-trtspor1.medya.trt.com.tr/master.m3u8",
+      "enabled": true
+    }
   ]
 }
