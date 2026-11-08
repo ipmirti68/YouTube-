@@ -1,6 +1,13 @@
 {
   "channels": [
     {
+      "name": "Kuzeyboru Maclari",
+      "handle": "@tvfvoleyboltv",
+      "channel_id": "UCTgQ8Bfq3AUuo1vWULdvRKw",
+      "search": "Kuzeyboru",
+      "enabled": true
+    },
+    {
       "name": "TVF Voleybol TV",
       "handle": "@tvfvoleyboltv",
       "channel_id": "UCTgQ8Bfq3AUuo1vWULdvRKw",
