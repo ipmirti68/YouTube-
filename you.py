@@ -80,6 +80,8 @@ def get_live(channel):
 def get_latest(channel):
     # 1. Once channel_id ile RSS dene (en hizli)
     cid = channel.get("channel_id", "")
+    search = channel.get("search", "")
+    search = search.lower()
     if cid:
         try:
             u = "https://www.youtube.com/"
@@ -87,14 +89,46 @@ def get_latest(channel):
             u = u + "?channel_id="
             u = u + cid
             r = requests.get(u, timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
-            p = r"<yt:videoId>"
-            p = p + r"([A-Za-z0-9_-]{11})"
-            p = p + r"</yt:videoId>"
-            m = re.findall(p, r.text)
-            if m:
-                return m[0]
+            # entry entry gez: baslik + videoId birlikte al
+            entries = re.findall(r"<entry>(.*?)</entry>", r.text, re.DOTALL)
+            for e in entries:
+                vid_m = re.search(r"<yt:videoId>([A-Za-z0-9_-]{11})</yt:videoId>", e)
+                tit_m = re.search(r"<title>(.*?)</title>", e, re.DOTALL)
+                if not vid_m:
+                    continue
+                vid = vid_m.group(1)
+                tit = tit_m.group(1).lower() if tit_m else ""
+                # search varsa sadece o takim gecen videoyu al
+                if search:
+                    if search in tit:
+                        print("Kuzeyboru maci bulundu: " + tit)
+                        return vid
+                    else:
+                        continue
+                return vid
+            # search varsa ama RSS'de bulunamadiysa alta dus, yt-dlp search dene
+            if search:
+                print("RSS'de Kuzeyboru bulunamadi, arama deneniyor")
+            else:
+                return None
         except Exception:
             pass
+    # search icin yt-dlp ile YouTube aramasi: son Kuzeyboru maci
+    if search:
+        try:
+            q = "ytsearch5:" + search + " mac"
+            cmd = build_base_cmd() + ['--flat-playlist', '--get-id', '--get-title', q]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=50)
+            lines = r.stdout.strip().split('\n')
+            # get-id + get-title cift cift gelir
+            for i in range(0, len(lines)-1, 2):
+                vid = lines[i].strip()
+                tit = lines[i+1].lower() if i+1 < len(lines) else ""
+                if len(vid) == 11 and search in tit:
+                    print("Aramada bulundu: " + tit)
+                    return vid
+        except Exception as e:
+            print(e)
     # 2. channel_id yoksa / bos ise handle ile yt-dlp'den son videoyu al (TRT icin bu lazim)
     h = channel.get("handle", "")
     if h:
