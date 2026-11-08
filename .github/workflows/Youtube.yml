@@ -1,41 +1,29 @@
-name: YouTube M3U Guncelle - Sultanlar Ligi
-
+name: update
 on:
   schedule:
-    # Her 30 dakikada bir calisir - mac saatinde taze link icin
     - cron: '*/30 * * * *'
-  workflow_dispatch: # Elle calistir butonu
-  push:
-    branches: [ main ]
-
+  workflow_dispatch:
 permissions:
   contents: write
-
 jobs:
-  update:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Kodu cek
-        uses: actions/checkout@v4
-
-      - name: Python kur
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: Gerekli paketleri kur
-        run: |
-          pip install -U yt-dlp requests
-
+      - run: pip install -U yt-dlp requests
       - name: M3U olustur
-        run: |
-          python you.py
-        continue-on-error: true
-
+        env:
+          YT_COOKIES: ${{ secrets.YT_COOKIES }}
+          YT_PO_TOKEN: ${{ secrets.YT_PO_TOKEN }}
+          YT_VISITOR_DATA: ${{ secrets.YT_VISITOR_DATA }}
+        run: python you.py
       - name: Dosyalari kaydet
         run: |
           git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add m3u_files/ || true
-          git diff --cached --quiet || git commit -m "M3U guncellendi - $(date +'%Y-%m-%d %H:%M')"
-          git push || true
+          git config user.email "actions@github.com"
+          git add m3u_files/
+          git commit -m "update" || echo "degisiklik yok"
+          git push
