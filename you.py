@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 YouTube M3U Generator - Sultanlar Ligi / YouTube Only
+Canli varsa canli, yoksa eski video / mac tekrari getirir
 """
 import json
 import os
@@ -36,6 +37,30 @@ def get_live_video_id(channel):
             m2 = re.findall(r'"videoId":"([A-Za-z0-9_-]{11})"', r.text)
             if m2:
                 return m2[0]
+        except Exception:
+            continue
+    return None
+
+def get_latest_video_id(channel):
+    handle = channel.get("handle", "")
+    channel_id = channel.get("channel_id", "")
+    urls = []
+    if handle:
+        urls.append(f"https://www.youtube.com/{handle}/videos")
+    if channel_id:
+        urls.append(f"https://www.youtube.com/channel/{channel_id}/videos")
+
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'tr-TR,tr;q=0.9'
+    }
+
+    for url in urls:
+        try:
+            r = requests.get(url, headers=headers, timeout=15)
+            m = re.findall(r'"videoId":"([A-Za-z0-9_-]{11})"', r.text)
+            if m:
+                return m[0]
         except Exception:
             continue
     return None
@@ -84,41 +109,32 @@ def main():
         print(f"\n[{i}/{len(channels)}] {name}")
         yaz("Canli yayin araniyor...", 36)
         video_id = get_live_video_id(ch)
+        is_live = True
 
         if not video_id:
-            yaz("Su an canli yayin YOK - Mac saati degil", 31)
-            results.append({'name': name, 'status': 'failed'})
-            continue
+            yaz("Canli YOK, eski video / mac tekrari getiriliyor...", 33)
+            video_id = get_latest_video_id(ch)
+            is_live = False
+            if not video_id:
+                yaz("Eski video da bulunamadi", 31)
+                results.append({'name': name, 'status': 'failed'})
+                continue
 
-        yaz(f"Canli bulundu: https://youtu.be/{video_id}", 32)
+        if is_live:
+            yaz(f"Canli bulundu: https://youtu.be/{video_id}", 32)
+        else:
+            yaz(f"Eski video bulundu: https://youtu.be/{video_id}", 33)
+
         m3u_url = get_m3u_from_video(video_id)
 
         if m3u_url:
+            etiket = "CANLI" if is_live else "TEKRAR"
             content = []
             content.append('#EXTM3U')
-            content.append(f'#EXTINF:-1 tvg-logo="https://img.youtube.com/vi/{video_id}/hqdefault.jpg" tvg-name="{name}",{name} CANLI - Sultanlar Ligi')
+            content.append(f'#EXTINF:-1 tvg-logo="https://img.youtube.com/vi/{video_id}/hqdefault.jpg" tvg-name="{name}",{etiket} {name} - Sultanlar Ligi')
             content.append(m3u_url)
             filename = f"m3u_files/{safe_filename(name)}.m3u"
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(content))
             yaz(f"M3U olustu: {filename}", 32)
-            results.append({'name': name, 'status': 'success', 'm3u_url': m3u_url, 'video_id': video_id})
-        else:
-            yaz("m3u alinamadi", 31)
-            results.append({'name': name, 'status': 'failed'})
-        time.sleep(2)
-
-    content = ['#EXTM3U', '#PLAYLIST:Sultanlar Ligi YouTube']
-    for r in results:
-        if r['status'] == 'success':
-            content.append(f"#EXTINF:-1,{r['name']}")
-            content.append(r['m3u_url'])
-
-    with open('m3u_files/all_channels.m3u', 'w', encoding='utf-8') as f:
-        f.write('\n'.join(content))
-
-    print("\n" + "=" * 70)
-    yaz(f"Bittt. Basarili: {len([r for r in results if r['status'] == 'success'])} / {len(channels)}", 32)
-
-if __name__ == "__main__":
-    main()
+            results
