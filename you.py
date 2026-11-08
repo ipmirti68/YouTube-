@@ -34,8 +34,8 @@ def build_base_cmd(extra_clients=None):
     cf = write_cookies()
     if cf:
         cmd += ['--cookies', cf]
-    # impersonate varsa dene, yoksa sorun degil
-    cmd += ['--impersonate', 'chrome']
+    # NOT: --impersonate kullanma! curl_cffi kurulu degilse yt-dlp baslamadan coker
+    # Onceki hatanin sebebi buydu: Traceback ... with YoutubeDL
     po_token = os.environ.get('YT_PO_TOKEN', '').strip()
     visitor = os.environ.get('YT_VISITOR_DATA', '').strip()
     clients = extra_clients if extra_clients else 'android,ios,tv_embedded'
