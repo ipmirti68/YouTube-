@@ -1,0 +1,7 @@
+{
+  "channels": [
+    {"name": "TVF Voleybol TV", "enabled": true},
+    {"name": "TRT Spor Yıldız", "enabled": true},
+    {"name": "TRT Spor", "enabled": true}
+  ]
+}
