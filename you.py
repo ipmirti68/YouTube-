@@ -59,13 +59,37 @@ def get_m3u(vid):
     vu = "https://www.youtube.com/"
     vu = vu + "watch?v="
     vu = vu + vid
-    cmd = []
-    cmd.append('yt-dlp')
-    cmd.append('-g')
-    cmd.append('-f')
-    cmd.append('best[height<=720]')
-    cmd.append('--no-warnings')
-    cmd.append(vu)
+    denemeler = []
+    denemeler.append('best[height<=720]')
+    denemeler.append('best')
+    denemeler.append('best[ext=mp4]')
+    for fmt in denemeler:
+        cmd = []
+        cmd.append('yt-dlp')
+        cmd.append('-g')
+        cmd.append('-f')
+        cmd.append(fmt)
+        cmd.append('--no-warnings')
+        cmd.append('--extractor-args')
+        cmd.append('youtube:player_client=android,web')
+        cmd.append(vu)
+        try:
+            r = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30)
+            s = r.stdout.strip()
+            print("Deneme:")
+            print(fmt)
+            print("Sonuc:")
+            print(s[:100])
+            if s.startswith("http"):
+                return s.split('\n')[0]
+        except Exception as e:
+            print(e)
+            continue
+    return None
     try:
         r = subprocess.run(
             cmd,
