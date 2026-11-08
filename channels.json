@@ -1,7 +1,7 @@
 {
   "channels": [
-    {"name": "TVF Voleybol TV", "enabled": true},
-    {"name": "TRT Spor Yıldız", "enabled": true},
-    {"name": "TRT Spor", "enabled": true}
+    {"name": "TVF Voleybol TV", "handle": "@tvfvoleyboltv", "channel_id": "UCTgQ8Bfq3AUuo1vWULdvRKw", "enabled": true},
+    {"name": "【entity-TRT Spor¦canonical_name=TRT Spor】 Yildiz", "handle": "@trtsporyildiz", "channel_id": "", "enabled": true},
+    {"name": "【entity-TRT Spor¦canonical_name=TRT Spor】", "handle": "@trtspor", "channel_id": "", "enabled": true}
   ]
 }
