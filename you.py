@@ -125,6 +125,11 @@ def main():
         time.sleep(2)
 
     content = ['#EXTM3U', '#PLAYLIST:Sultanlar Ligi YouTube']
-    for r in results:
+        for r in results:
         if r['status'] == 'success':
-            etiket = "CANLI" if r
+            if r.get('is_live'):
+                etiket = "CANLI"
+            else:
+                etiket = "TEKRAR"
+            content.append(f"#EXTINF:-1,{etiket} {r['name']}")
+            content.append(r['m3u_url'])
