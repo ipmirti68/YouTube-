@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Türkiye Ulusal TV - Akıllı TV & Android TV</title>
+  
+  <!-- Smart TV Meta Tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0a0e17">
+
+  <!-- Google Fonts - TV Optimized Clean Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+  <!-- HLS.js for Low-Latency Live Video Streaming -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
+
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body class="tv-mode">
+
+  <!-- Fullscreen Video Container -->
+  <div id="video-wrapper" class="video-container">
+    <video id="tv-video" playsinline autoplay preload="auto"></video>
+    
+    <!-- Buffering Spinner -->
+    <div id="buffering-indicator" class="buffering-overlay">
+      <div class="tv-spinner"></div>
+      <span class="buffering-text">Yayın Yükleniyor...</span>
+    </div>
+
+    <!-- Autoplay / Unmute Prompt -->
+    <div id="unmute-banner" class="unmute-banner">
+      <span class="unmute-icon">🔊</span>
+      <span>Sesi Açmak İçin Herhangi Bir Tuşa veya Ekrana Basın</span>
+    </div>
+
+    <!-- Stream Error / Offline Overlay -->
+    <div id="error-overlay" class="error-overlay">
+      <div class="error-card">
+        <div class="error-icon">⚠️</div>
+        <div class="error-title">Yayın Bağlantısı Kurulamadı</div>
+        <div id="error-message" class="error-desc">Kanal akışı geçici olarak yanıt vermiyor.</div>
+        <div class="error-actions">
+          <button id="btn-retry-stream" class="btn-tv focusable" tabindex="0">Tekrar Dene</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top TV Status Header -->
+  <header class="tv-header">
+    <div class="tv-brand">
+      <span class="brand-badge">TR LIVE</span>
+      <span class="brand-title">TÜRKİYE ULUSAL TV</span>
+    </div>
+    <div class="tv-header-info">
+      <div id="live-clock" class="tv-clock">00:00:00</div>
+    </div>
+  </header>
+
+  <!-- Bottom Channel Mini OSD (Zapping Banner) -->
+  <div id="channel-osd" class="channel-osd-container">
+    <div class="osd-content">
+      <div class="osd-left">
+        <div id="osd-number" class="osd-channel-num">1</div>
+        <div class="osd-logo-box">
+          <img id="osd-logo" src="" alt="Kanal Logo" />
+        </div>
+        <div class="osd-info">
+          <div class="osd-title-row">
+            <h1 id="osd-name" class="osd-channel-name">TRT 1</h1>
+            <span id="osd-fav-btn" class="osd-star">☆</span>
+          </div>
+          <div class="osd-tags">
+            <span id="osd-category" class="osd-badge badge-cat">Ulusal</span>
+            <span id="osd-quality" class="osd-badge badge-res">1080p FHD</span>
+            <span class="osd-badge badge-live"><span class="live-dot"></span> CANLI</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="osd-right">
+        <div id="osd-time" class="osd-time-display">12:00</div>
+        <div class="osd-shortcuts-mini">
+          <span>[▲/▼] Kanal Değiştir</span>
+          <span>[OK] Liste</span>
+          <span>[Sarı/F] Favori</span>
+          <span>[Mavi/A] Boyut</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Direct Numeric Channel Dialer (OSD) -->
+  <div id="numeric-osd" class="numeric-overlay">
+    <div class="numeric-box">
+      <div class="numeric-label">KANAL GİRİŞİ</div>
+      <div id="numeric-digits" class="numeric-digits">1</div>
+      <div id="numeric-channel-preview" class="numeric-preview">TRT 1</div>
+      <div class="numeric-progress"><div class="numeric-bar"></div></div>
+    </div>
+  </div>
+
+  <!-- TV Channel Sidebar & Categories Drawer -->
+  <aside id="tv-sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title-group">
+        <h2 class="sidebar-title">Kanal Rehberi</h2>
+        <span id="channel-count-badge" class="count-badge">0 Kanal</span>
+      </div>
+      <div class="sidebar-actions">
+        <button id="btn-open-settings" class="btn-icon focusable" title="Ayarlar" tabindex="0">⚙️</button>
+        <button id="sidebar-close-btn" class="btn-icon focusable" title="Kapat" tabindex="0">✕</button>
+      </div>
+    </div>
+
+    <!-- Search / Filter Input -->
+    <div class="search-box-wrap">
+      <input type="text" id="channel-search" class="search-input focusable" placeholder="Kanal adı veya no ara..." tabindex="0" />
+    </div>
+
+    <div class="sidebar-body">
+      <!-- Category Tabs (Left Rail) -->
+      <nav id="category-list" class="category-nav">
+        <!-- Javascript ile oluşturulacak -->
+      </nav>
+
+      <!-- Channel Grid / List -->
+      <main id="channel-list" class="channels-grid">
+        <!-- Javascript ile oluşturulacak -->
+      </main>
+    </div>
+
+    <!-- Bottom Remote Control Helper Bar -->
+    <div class="remote-helper-footer">
+      <div class="helper-item"><span class="key-badge">OK</span> Seç</div>
+      <div class="helper-item"><span class="key-badge">▲/▼</span> Gezin</div>
+      <div class="helper-item"><span class="key-badge">◄/►</span> Kategori/Kanal</div>
+      <div class="helper-item"><span class="key-badge">Sarı/F</span> Favori</div>
+      <div class="helper-item"><span class="key-badge">Geri</span> Kapat</div>
+    </div>
+  </aside>
+
+  <!-- Settings & Custom M3U Modal -->
+  <div id="settings-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Kanal & Kaynak Ayarları</h3>
+        <button id="btn-close-settings" class="btn-icon focusable" tabindex="0">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-group">
+          <label class="setting-label">Özel M3U / IPTV Çalma Listesi URL'si:</label>
+          <input type="text" id="custom-m3u-url" class="setting-input focusable" placeholder="https://example.com/playlist.m3u" tabindex="0" />
+          <p class="setting-hint">Varsayılan olarak doğrulanmış ve güncel Türkiye M3U listesi kullanılmaktadır.</p>
+        </div>
+
+        <div class="setting-actions">
+          <button id="btn-force-update" class="btn-tv btn-primary focusable" tabindex="0">🔄 Güncellemeleri Şimdi Denetle</button>
+          <button id="btn-reset-default" class="btn-tv btn-secondary focusable" tabindex="0">↺ Varsayılan Listeye Sıfırla</button>
+        </div>
+
+        <div id="update-status-text" class="update-status">Otomatik güncelleme hazır.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Feedback Toast -->
+  <div id="tv-toast" class="tv-toast"></div>
+
+  <!-- Application Entry Point -->
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
