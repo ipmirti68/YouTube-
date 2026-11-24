@@ -5,8 +5,8 @@ from datetime import datetime
 
 def create_umittube_folder():
     import os
-    if not os.path.exists("Umittube"):
-        os.makedirs("Umittube")
+    if not os.path.exists("tube"):
+        os.makedirs("tube")
 
 def get_youtube_link(video_id):
     try:
@@ -53,10 +53,10 @@ def save_channel_as_m3u8(channel_name, stream_url):
 def create_master_playlist(channels):
     master = ["#EXTM3U", "# Playlist: Umittube", f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", f"# Total channels: {len(channels)}", ""]
     for name, url in channels:
-        master.append(f"#EXTINF:-1 tvg-logo=\"\" group-title=\"Umittube\",{name}")
+        master.append(f"#EXTINF:-1 tvg-logo=\"\" group-title=\"tube\",{name}")
         master.append(url)
         master.append("")
-    with open("Umittube/umittube.m3u", "w", encoding="utf-8") as f:
+    with open("tube/tube.m3u", "w", encoding="utf-8") as f:
         f.write("\n".join(master))
 
 def main():
