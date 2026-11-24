@@ -1,4 +1,4 @@
-name: Update Umittube playlist
+name: Update tube playlist
 
 on:
   schedule:
