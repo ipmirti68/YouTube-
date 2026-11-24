@@ -12,8 +12,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 ENCRYPTED_URL = os.environ.get('ENCRYPTED_PLAYLIST_URL')
 
 def create_umittube_folder():
-    if not os.path.exists("Umittube"):
-        os.makedirs("Umittube")
+    if not os.path.exists("tube"):
+        os.makedirs("tube")
 
 def decrypt_url():
     return base64.b64decode(ENCRYPTED_URL).decode("utf-8")
@@ -83,13 +83,13 @@ def create_master_playlist(channels):
         master.append(f"#EXTINF:-1 tvg-logo=\"\" group-title=\"Umittube\",{name}")
         master.append(url)
         master.append("")
-    with open("Umittube/umittube.m3u", "w", encoding="utf-8") as f:
+    with open("tube/tube.m3u", "w", encoding="utf-8") as f:
         f.write("\n".join(master))
     github = ["#EXTM3U"]
     for name, url in channels:
         github.append(f"#EXTINF:-1,{name}")
         github.append(url)
-    with open("Umittube/umittube_github.m3u", "w", encoding="utf-8") as f:
+    with open("tube/tubehub.m3u", "w", encoding="utf-8") as f:
         f.write("\n".join(github))
 
 def main():
