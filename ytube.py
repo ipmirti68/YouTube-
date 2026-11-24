@@ -1,66 +1,53 @@
-import requests
-import sys
-import subprocess
+import base64
 import os
+import re
+import requests
+import urllib3
+import sys
 from datetime import datetime
 
-# Dosya adı burada, her yerde aynı olacak
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+ENCRYPTED_URL = os.environ.get('ENCRYPTED_PLAYLIST_URL')
+if not ENCRYPTED_URL:
+    print("HATA: ENCRYPTED_PLAYLIST_URL GitHub Secret'i bulunamadi!")
+    sys.exit(1)
+
 FOLDER = "tube"
 
 def create_folder():
-    # Klasör yoksa kendi oluşturur
+    # Klasor yoksa kendi olusturur
     if not os.path.exists(FOLDER):
         os.makedirs(FOLDER)
         print(f"Klasor olusturuldu: {FOLDER}")
     else:
         print(f"Klasor zaten var: {FOLDER}")
 
-def get_youtube_link(video_id):
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    # 3 farklı yöntem dene, biri mutlaka tutar
-    denemeler = [
-        ["yt-dlp", "-g", "--no-warnings", "--extractor-args", "youtube:player_client=android", "-f", "best[ext=m3u8]/best", url],
-        ["yt-dlp", "-g", "--no-warnings", "--extractor-args", "youtube:player_client=ios", "-f", "best[ext=m3u8]/best", url],
-        ["yt-dlp", "-g", "--no-warnings", "--extractor-args", "youtube:player_client=web", "-f", "best", url],
-    ]
-    for cmd in denemeler:
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-            link = result.stdout.strip().split("\n")[0] if result.stdout else ""
-            if link.startswith("http"):
-                print(f"Link bulundu: {video_id} - {cmd[5]}")
-                return link
-            else:
-                # Hata neymiş görelim diye loga bas
-                print(f"Deneme basarisiz {video_id}: {result.stderr[:300]}")
-        except Exception as e:
-            print(f"YouTube hatasi {video_id}: {e}")
-    return None
+def decrypt_url():
+    decrypted_bytes = base64.b64decode(ENCRYPTED_URL)
+    return decrypted_bytes.decode("utf-8")
 
-def load_liste():
-    custom = []
-    url = "https://raw.githubusercontent.com/ipmirti68/YouTube-/refs/heads/main/liste.txt"
-    print(f"liste.txt okunuyor: {url}")
-    r = requests.get(url, timeout=20)
-    print(f"liste.txt geldi: {r.text[:200]}")
-    for line in r.text.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        parts = line.split(",")
-        if len(parts) >= 2:
-            name = parts[0].strip()
-            video = parts[1].strip()
-            if "v=" in video:
-                video = video.split("v=")[1].split("&")[0]
-            custom.append((name, video))
-            print(f"Listeden bulundu: {name} - {video}")
-    return custom
+def fetch_playlist(url):
+    response = requests.get(url, verify=False, timeout=30)
+    response.raise_for_status()
+    return response.text
+
+def parse_playlist(content):
+    lines = content.strip().split("\n")
+    channels = []
+    for i in range(len(lines)):
+        if lines[i].startswith("#EXTINF"):
+            match = re.search(r",(.+)$", lines[i])
+            if match and i + 1 < len(lines) and not lines[i + 1].startswith("#"):
+                channel_name = match.group(1).strip()
+                channel_url = lines[i + 1].strip()
+                channels.append((channel_name, channel_url))
+    return channels
 
 def save_channel_as_m3u8(channel_name, stream_url):
     safe_name = "".join(c for c in channel_name if c.isalnum() or c in ".-_").rstrip()
-    safe_name = safe_name.replace('ı','i').replace('ğ','g').replace('ü','u').replace('ş','s').replace('ö','o').replace('ç','c')
-    safe_name = safe_name.replace('İ','I').replace('Ğ','G').replace('Ü','U').replace('Ş','S').replace('Ö','O').replace('Ç','C')
+    safe_name = safe_name.replace('ı', 'i').replace('ğ', 'g').replace('ü', 'u').replace('ş', 's').replace('ö', 'o').replace('ç', 'c')
+    safe_name = safe_name.replace('İ', 'I').replace('Ğ', 'G').replace('Ü', 'U').replace('Ş', 'S').replace('Ö', 'O').replace('Ç', 'C')
     filename = f"{FOLDER}/{safe_name}.m3u8"
     content = f"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=1280000,RESOLUTION=1280x720\n{stream_url}\n"
     with open(filename, "w", encoding="utf-8") as f:
@@ -68,30 +55,43 @@ def save_channel_as_m3u8(channel_name, stream_url):
     print(f"Saved: {filename}")
 
 def create_master_playlist(channels):
-    master = ["#EXTM3U", "# Playlist: tube", f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", f"# Total channels: {len(channels)}", ""]
-    for name, url in channels:
-        master.append(f"#EXTINF:-1 tvg-logo=\"\" group-title=\"tube\",{name}")
-        master.append(url)
-        master.append("")
+    master_content = ["#EXTM3U"]
+    master_content.append("# Playlist: tube")
+    master_content.append(f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    master_content.append(f"# Total channels: {len(channels)}")
+    master_content.append("")
+    for channel_name, stream_url in channels:
+        master_content.append(f"#EXTINF:-1 tvg-logo=\"\" group-title=\"tube\",{channel_name}")
+        master_content.append(stream_url)
+        master_content.append("")
+
     with open(f"{FOLDER}/tube.m3u", "w", encoding="utf-8") as f:
-        f.write("\n".join(master))
+        f.write("\n".join(master_content))
     print(f"Master playlist saved: {FOLDER}/tube.m3u")
+
+    github_content = ["#EXTM3U"]
+    for channel_name, stream_url in channels:
+        github_content.append(f"#EXTINF:-1,{channel_name}")
+        github_content.append(stream_url)
+    with open(f"{FOLDER}/tube_github.m3u", "w", encoding="utf-8") as f:
+        f.write("\n".join(github_content))
+    print(f"GitHub playlist saved: {FOLDER}/tube_github.m3u")
 
 def main():
     try:
         create_folder()
-        channels = []
-        for name, vid in load_liste():
-            link = get_youtube_link(vid)
-            if link:
-                channels.append((name, link))
-                print(f"Added: {name}")
-            else:
-                print(f"Link bulunamadi: {name}")
+        playlist_url = decrypt_url()
+        print(f"Fetching playlist from: {playlist_url[:50]}...")
+        playlist_content = fetch_playlist(playlist_url)
+        channels = parse_playlist(playlist_content)
+        if not channels:
+            print("No channels found in playlist.")
+            return
+        print(f"\nFound {len(channels)} channels. Processing...\n")
         for name, url in channels:
             save_channel_as_m3u8(name, url)
         create_master_playlist(channels)
-        print(f"Done: {len(channels)} channels")
+        print(f"\nDone: {len(channels)} channels")
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
