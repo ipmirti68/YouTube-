@@ -27,7 +27,7 @@ jobs:
       - name: Run script
         env:
           ENCRYPTED_PLAYLIST_URL: ${{ secrets.ENCRYPTED_PLAYLIST_URL }}
-        run: python umittube.py
+        run: python ytube.py
 
       - name: Commit and push
         run: |
