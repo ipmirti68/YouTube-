@@ -2,33 +2,24 @@ name: Update tube playlist
 
 on:
   schedule:
-    # Her 2 saatte bir çalışır, linkler ölmeden yenilenir
     - cron: '0 */2 * * *'
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  build:
+  update:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
+      - uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
       - name: Install dependencies
-        run: |
-          pip install requests
-          pip install -U yt-dlp
-      - name: Run script
+        run: pip install requests urllib3
+      - name: Run python ytube.py
         env:
           ENCRYPTED_PLAYLIST_URL: ${{ secrets.ENCRYPTED_PLAYLIST_URL }}
         run: python ytube.py
-
       - name: Commit and push
         run: |
           git config --global user.name "github-actions[bot]"
