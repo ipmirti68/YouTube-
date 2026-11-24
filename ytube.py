@@ -16,14 +16,25 @@ def create_folder():
         print(f"Klasor zaten var: {FOLDER}")
 
 def get_youtube_link(video_id):
-    try:
-        url = f"https://www.youtube.com/watch?v={video_id}"
-        result = subprocess.run(["yt-dlp", "-g", "-f", "best[ext=m3u8]/best", url], capture_output=True, text=True, timeout=60)
-        link = result.stdout.strip().split("\n")[0]
-        if link.startswith("http"):
-            return link
-    except Exception as e:
-        print(f"YouTube hatasi {video_id}: {e}")
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    # 3 farklı yöntem dene, biri mutlaka tutar
+    denemeler = [
+        ["yt-dlp", "-g", "--no-warnings", "--extractor-args", "youtube:player_client=android", "-f", "best[ext=m3u8]/best", url],
+        ["yt-dlp", "-g", "--no-warnings", "--extractor-args", "youtube:player_client=ios", "-f", "best[ext=m3u8]/best", url],
+        ["yt-dlp", "-g", "--no-warnings", "--extractor-args", "youtube:player_client=web", "-f", "best", url],
+    ]
+    for cmd in denemeler:
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+            link = result.stdout.strip().split("\n")[0] if result.stdout else ""
+            if link.startswith("http"):
+                print(f"Link bulundu: {video_id} - {cmd[5]}")
+                return link
+            else:
+                # Hata neymiş görelim diye loga bas
+                print(f"Deneme basarisiz {video_id}: {result.stderr[:300]}")
+        except Exception as e:
+            print(f"YouTube hatasi {video_id}: {e}")
     return None
 
 def load_liste():
