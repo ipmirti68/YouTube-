@@ -1,37 +1,12 @@
-import base64
-import os
-import re
 import requests
-import urllib3
 import sys
 import subprocess
 from datetime import datetime
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-ENCRYPTED_URL = os.environ.get('ENCRYPTED_PLAYLIST_URL')
-
 def create_umittube_folder():
-    if not os.path.exists("tube"):
-        os.makedirs("tube")
-
-def decrypt_url():
-    return base64.b64decode(ENCRYPTED_URL).decode("utf-8")
-
-def fetch_playlist(url):
-    r = requests.get(url, verify=False, timeout=30)
-    r.raise_for_status()
-    return r.text
-
-def parse_playlist(content):
-    lines = content.strip().split("\n")
-    channels = []
-    for i in range(len(lines)):
-        if lines[i].startswith("#EXTINF"):
-            m = re.search(r",(.+)$", lines[i])
-            if m and i+1 < len(lines) and not lines[i+1].startswith("#"):
-                channels.append((m.group(1).strip(), lines[i+1].strip()))
-    return channels
+    import os
+    if not os.path.exists("Umittube"):
+        os.makedirs("Umittube")
 
 def get_youtube_link(video_id):
     try:
@@ -44,27 +19,25 @@ def get_youtube_link(video_id):
         print(f"YouTube hatasi {video_id}: {e}")
     return None
 
-def load_custom_youtube():
+def load_liste():
     custom = []
-    try:
-        # Senin liste.txt dosyan buradan okunuyor
-        url = "https://raw.githubusercontent.com/ipmirti68/YouTube-/refs/heads/main/liste.txt"
-        r = requests.get(url, timeout=20)
-        print(f"liste.txt okundu: {len(r.text)} karakter")
-        for line in r.text.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = line.split(",")
-            if len(parts) >= 2:
-                name = parts[0].strip()
-                video = parts[1].strip()
-                if "v=" in video:
-                    video = video.split("v=")[1].split("&")[0]
-                custom.append((name, video))
-                print(f"Listeden bulundu: {name} - {video}")
-    except Exception as e:
-        print(f"liste.txt okunamadi: {e}")
+    # Senin liste.txt dosyan
+    url = "https://raw.githubusercontent.com/ipmirti68/YouTube-/refs/heads/main/liste.txt"
+    print(f"liste.txt okunuyor: {url}")
+    r = requests.get(url, timeout=20)
+    print(f"liste.txt geldi: {r.text[:200]}")
+    for line in r.text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(",")
+        if len(parts) >= 2:
+            name = parts[0].strip()
+            video = parts[1].strip()
+            if "v=" in video:
+                video = video.split("v=")[1].split("&")[0]
+            custom.append((name, video))
+            print(f"Listeden bulundu: {name} - {video}")
     return custom
 
 def save_channel_as_m3u8(channel_name, stream_url):
@@ -83,27 +56,20 @@ def create_master_playlist(channels):
         master.append(f"#EXTINF:-1 tvg-logo=\"\" group-title=\"Umittube\",{name}")
         master.append(url)
         master.append("")
-    with open("tube/tube.m3u", "w", encoding="utf-8") as f:
+    with open("Umittube/umittube.m3u", "w", encoding="utf-8") as f:
         f.write("\n".join(master))
-    github = ["#EXTM3U"]
-    for name, url in channels:
-        github.append(f"#EXTINF:-1,{name}")
-        github.append(url)
-    with open("tube/tubehub.m3u", "w", encoding="utf-8") as f:
-        f.write("\n".join(github))
 
 def main():
     try:
         create_umittube_folder()
-        playlist_url = decrypt_url()
-        print(f"Fetching playlist from: {playlist_url[:50]}...")
-        channels = parse_playlist(fetch_playlist(playlist_url))
-        print(f"Found {len(channels)} channels from mywire")
-        for name, vid in load_custom_youtube():
+        channels = []
+        for name, vid in load_liste():
             link = get_youtube_link(vid)
             if link:
                 channels.append((name, link))
-                print(f"Added YouTube: {name}")
+                print(f"Added: {name}")
+            else:
+                print(f"Link bulunamadi: {name}")
         for name, url in channels:
             save_channel_as_m3u8(name, url)
         create_master_playlist(channels)
