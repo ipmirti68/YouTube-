@@ -47,20 +47,24 @@ def get_youtube_link(video_id):
 def load_custom_youtube():
     custom = []
     try:
-        with open("youtube-listesi.txt", "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                parts = line.split(",")
-                if len(parts) >= 2:
-                    name = parts[0].strip()
-                    video = parts[1].strip()
-                    if "v=" in video:
-                        video = video.split("v=")[1].split("&")[0]
-                    custom.append((name, video))
-    except FileNotFoundError:
-        print("youtube-listesi.txt bulunamadi")
+        # Senin liste.txt dosyan buradan okunuyor
+        url = "https://raw.githubusercontent.com/ipmirti68/YouTube-/refs/heads/main/liste.txt"
+        r = requests.get(url, timeout=20)
+        print(f"liste.txt okundu: {len(r.text)} karakter")
+        for line in r.text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split(",")
+            if len(parts) >= 2:
+                name = parts[0].strip()
+                video = parts[1].strip()
+                if "v=" in video:
+                    video = video.split("v=")[1].split("&")[0]
+                custom.append((name, video))
+                print(f"Listeden bulundu: {name} - {video}")
+    except Exception as e:
+        print(f"liste.txt okunamadi: {e}")
     return custom
 
 def save_channel_as_m3u8(channel_name, stream_url):
@@ -95,7 +99,6 @@ def main():
         print(f"Fetching playlist from: {playlist_url[:50]}...")
         channels = parse_playlist(fetch_playlist(playlist_url))
         print(f"Found {len(channels)} channels from mywire")
-        # Senin YouTube listeni ekle
         for name, vid in load_custom_youtube():
             link = get_youtube_link(vid)
             if link:
