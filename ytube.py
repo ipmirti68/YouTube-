@@ -1,12 +1,19 @@
 import requests
 import sys
 import subprocess
+import os
 from datetime import datetime
 
-def create_umittube_folder():
-    import os
-    if not os.path.exists("tube"):
-        os.makedirs("tube")
+# Dosya adı burada, her yerde aynı olacak
+FOLDER = "tube"
+
+def create_folder():
+    # Klasör yoksa kendi oluşturur
+    if not os.path.exists(FOLDER):
+        os.makedirs(FOLDER)
+        print(f"Klasor olusturuldu: {FOLDER}")
+    else:
+        print(f"Klasor zaten var: {FOLDER}")
 
 def get_youtube_link(video_id):
     try:
@@ -21,7 +28,6 @@ def get_youtube_link(video_id):
 
 def load_liste():
     custom = []
-    # Senin liste.txt dosyan
     url = "https://raw.githubusercontent.com/ipmirti68/YouTube-/refs/heads/main/liste.txt"
     print(f"liste.txt okunuyor: {url}")
     r = requests.get(url, timeout=20)
@@ -44,24 +50,25 @@ def save_channel_as_m3u8(channel_name, stream_url):
     safe_name = "".join(c for c in channel_name if c.isalnum() or c in ".-_").rstrip()
     safe_name = safe_name.replace('ı','i').replace('ğ','g').replace('ü','u').replace('ş','s').replace('ö','o').replace('ç','c')
     safe_name = safe_name.replace('İ','I').replace('Ğ','G').replace('Ü','U').replace('Ş','S').replace('Ö','O').replace('Ç','C')
-    filename = f"Umittube/{safe_name}.m3u8"
+    filename = f"{FOLDER}/{safe_name}.m3u8"
     content = f"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-STREAM-INF:BANDWIDTH=1280000,RESOLUTION=1280x720\n{stream_url}\n"
     with open(filename, "w", encoding="utf-8") as f:
         f.write(content)
     print(f"Saved: {filename}")
 
 def create_master_playlist(channels):
-    master = ["#EXTM3U", "# Playlist: Umittube", f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", f"# Total channels: {len(channels)}", ""]
+    master = ["#EXTM3U", "# Playlist: tube", f"# Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", f"# Total channels: {len(channels)}", ""]
     for name, url in channels:
         master.append(f"#EXTINF:-1 tvg-logo=\"\" group-title=\"tube\",{name}")
         master.append(url)
         master.append("")
-    with open("tube/tube.m3u", "w", encoding="utf-8") as f:
+    with open(f"{FOLDER}/tube.m3u", "w", encoding="utf-8") as f:
         f.write("\n".join(master))
+    print(f"Master playlist saved: {FOLDER}/tube.m3u")
 
 def main():
     try:
-        create_umittube_folder()
+        create_folder()
         channels = []
         for name, vid in load_liste():
             link = get_youtube_link(vid)
