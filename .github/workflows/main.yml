@@ -1,0 +1,38 @@
+name: Update Umittube playlist
+
+on:
+  schedule:
+    # Her 2 saatte bir çalışır, linkler ölmeden yenilenir
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests urllib3 yt-dlp
+
+      - name: Run script
+        env:
+          ENCRYPTED_PLAYLIST_URL: ${{ secrets.ENCRYPTED_PLAYLIST_URL }}
+        run: python umittube.py
+
+      - name: Commit and push
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add Umittube
+          git diff --cached --quiet || git commit -m "Update Umittube playlist"
+          git push
